@@ -16,9 +16,58 @@ class Player:
         self.width = 50
         self.height = 76
         self.health = 100
-        self.texture = arcade.load_texture("images/player.jpg")
-    def changeTexture(self, textureNum):
-        self.texture = arcade.load_texture("images/player/texture " + str(textureNum))
+        self.texture = arcade.load_texture("images/player textures/player.jpg")
+    def loadTextures(self):
+        self.textureListUp = []
+        self.textureListDown = []
+        self.textureListLeft = []
+        self.textureListRight = []
+        self.textureStanding = []
+        try:
+            self.textureNum = 0
+            while True:
+                self.textureNum += 1
+                self.textureListUp.append(arcade.load_texture("images/player textures/up/player" + str(self.textureNum) + ".jpg"))
+        except:
+            pass
+
+        try:
+            self.textureNum = 0
+            while True:
+                self.textureNum += 1
+                self.textureListDown.append(arcade.load_texture("images/player textures/down/player" + str(self.textureNum) + ".jpg"))
+        except:
+            pass
+
+        try:
+            self.textureNum = 0
+            while True:
+                self.textureNum += 1
+                self.textureListLeft.append(arcade.load_texture("images/player textures/left/player" + str(self.textureNum) + ".jpg"))
+        except:
+            pass
+
+        try:
+            self.textureNum = 0
+            while True:
+                self.textureNum += 1
+                self.textureListRight.append(arcade.load_texture("images/player textures/right/player" + str(self.textureNum) + ".jpg"))
+        except:
+            pass
+
+        try:
+            self.textureNum = 0
+            while True:
+                self.textureNum += 1
+                self.textureListStanding.append(arcade.load_texture("images/player textures/standing/player" + str(self.textureNum) + ".jpg"))
+        except:
+            pass
+    def changeTexture(self, list, number):
+        x = 0
+        for texture in list:
+            x += 1
+            if x == number:
+                self.texture = texture
 
 class Object():
     def setup(self, x, y, width, height, texture):
@@ -245,6 +294,7 @@ class MyGame(arcade.Window):
         self.hitbox = Hitbox()
         self.hitbox.page = 0
         self.hitbox.guiOpen = ""
+        self.player.loadTextures()
     def on_draw(self):
         arcade.start_render()
         
@@ -260,6 +310,9 @@ class MyGame(arcade.Window):
             self.bookshelfGui.drawGui(self.hitbox.page)
     
     def on_mouse_press(self, x, y, button, modifiers):
+
+        self.player.changeTexture(self.player.textureListUp, 1)
+        self.all_sprites_list.append(self.player)
 
         if self.hitbox.guiOpen == "bookshelf" and button == arcade.MOUSE_BUTTON_LEFT:
             for object in self.bookshelfGui.buttonList:
