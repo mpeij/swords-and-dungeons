@@ -1,0 +1,304 @@
+""" pywin32 """
+
+import arcade
+import random
+import time
+import keyboard
+import json
+
+SCREEN_WIDTH = 850
+SCREEN_HEIGHT = 600
+
+class Player:
+    def __init__(self):
+        self.x = SCREEN_WIDTH // 2
+        self.y = SCREEN_HEIGHT // 2
+        self.width = 50
+        self.height = 76
+        self.health = 100
+        self.texture = arcade.load_texture("images/player.jpg")
+    def changeTexture(self, textureNum):
+        self.texture = arcade.load_texture("images/player/texture " + str(textureNum))
+
+class Object():
+    def setup(self, x, y, width, height, texture):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.texture = arcade.load_texture("images/" + texture)
+
+class PageLoader:
+    def run(self):
+        x = 0
+        self.pages = []
+        while True:
+            try:
+                with open("data/data" + str(x) + ".json") as file_in:
+                    append = json.load(file_in)
+                self.pages.append(append)
+                x += 1
+            except Exception:
+                break
+
+class Controls:
+    def checkBarriers(self, playerX, playerY, collisionItemX, collisionItemY, collisionItemHitboxX, collisionItemHitboxY):
+        self.blockDirectionX = "none"
+        self.blockDirectionY = "none"
+        if playerX >= collisionItemX -collisionItemHitboxX -27 and playerX <= collisionItemX -collisionItemHitboxX -22 and playerY >= collisionItemY -collisionItemHitboxY -38 and playerY <= collisionItemY +collisionItemHitboxY +38:
+            self.blockDirectionX = "right"
+        if playerX <= collisionItemX +collisionItemHitboxX +27 and playerX >= collisionItemX +collisionItemHitboxX +22 and playerY >= collisionItemY -collisionItemHitboxY -38 and playerY <= collisionItemY +collisionItemHitboxY +38:
+            self.blockDirectionX = "left"
+        if playerY >= collisionItemY -collisionItemHitboxY -38 and playerY <= collisionItemY -collisionItemHitboxY -33 and playerX >= collisionItemX -collisionItemHitboxX -38 and playerX <= collisionItemX +collisionItemHitboxX +38:
+            self.blockDirectionY = "up"
+        if playerY <= collisionItemY +collisionItemHitboxY +38 and playerY >= collisionItemY +collisionItemHitboxY +33 and playerX >= collisionItemX -collisionItemHitboxX -38 and playerX <= collisionItemX +collisionItemHitboxX +38:
+            self.blockDirectionY = "down"
+
+class Gui:
+    def setup(self, name, width, height, texture):
+        self.name = name
+        self.width = width
+        self.height = height
+        self.texture = texture
+        self.buttonList = []
+        self.pageLoader = PageLoader()
+        self.pageLoader.run()
+        self.pages = self.pageLoader.pages
+    def addButton(self, x, y, width, height, name, function, texture):
+        self.buttonData = []
+        self.buttonData.append(x)
+        self.buttonData.append(y)
+        self.buttonData.append(width)
+        self.buttonData.append(height)
+        self.buttonData.append(name)
+        self.buttonData.append(function)
+        self.buttonData.append(texture)
+        self.buttonList.append(self.buttonData)
+    def drawGui(self, page):
+        arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, self.width, self.height, arcade.load_texture("images/" + self.texture))
+        for object in self.buttonList:
+            arcade.draw_texture_rectangle(object[0], object[1], object[2], object[3], arcade.load_texture(object[6]))
+        x = 0
+        for object in self.pages:
+            if x == page:
+                pageContent = object
+                start_x = SCREEN_WIDTH // 2 #text max is 55, y verschil is 15
+                start_y = 480
+                while True:
+                    if len(pageContent) > 53:
+                        pagePrint = pageContent[0:53]
+                        pageContent = pageContent[53:]
+                        arcade.draw_text(pagePrint, start_x, start_y, arcade.color.BLACK, 15, width=455, align="center", anchor_x="center", anchor_y="center")
+                        start_y -= 15
+                    else:
+                        arcade.draw_text(pageContent, start_x, start_y, arcade.color.BLACK, 15, width=455, align="center", anchor_x="center", anchor_y="center")
+                        break
+            x += 1
+
+class Hitbox:
+    def setup(self):
+        self.controls = Controls()
+        self.allBlockedDirections = []
+        self.totalBlocks = []
+        self.stopAppendUp = False
+        self.stopAppendDown = False
+        self.stopAppendLeft = False
+        self.stopAppendRight = False
+        self.moveY = None
+        self.moveX = None
+        self.playerMoveX = ""
+        self.playerMoveY = ""
+
+    def addInteractiveBarrier(self, objectX, objectY, objectWidth, objectHeight, playerX, playerY, objectName):
+        self.controls.checkBarriers(playerX, playerY, objectX, objectY, objectWidth // 2, objectHeight // 2)
+        if self.controls.blockDirectionX != "none" or self.controls.blockDirectionY != "none":
+            self.hitName = objectName
+
+        self.allBlockedDirections.append(self.controls.blockDirectionX)
+        self.allBlockedDirections.append(self.controls.blockDirectionY)
+        for object in self.allBlockedDirections:
+            if object == "left" and self.stopAppendLeft == False:
+                self.totalBlocks.append("left")
+                self.stopAppendLeft = True
+            if object == "right" and self.stopAppendRight == False:
+                self.totalBlocks.append("right")
+                self.stopAppendRight = True
+            if object == "up" and self.stopAppendUp == False:
+                self.totalBlocks.append("up")
+                self.stopAppendUp = True
+            if object == "down" and self.stopAppendDown == False:
+                self.totalBlocks.append("down")
+                self.stopAppendDown = True
+        self.playerMoveX = ""
+        self.playerMoveY = ""
+        if keyboard.is_pressed("esc"):
+            self.hitName = ""
+            #make sure gui stays closed
+            for object in self.totalBlocks:
+                if object == "left":
+                    self.playerMoveX = "right"
+                elif object == "right":
+                    self.playerMoveX = "left"
+                elif object == "up":
+                    self.playerMoveY = "down"
+                elif object == "down":
+                    self.playerMoveX = "up"
+
+    def addBarrier(self, objectX, objectY, objectWidth, objectHeight, playerX, playerY):
+        self.controls.checkBarriers(playerX, playerY, objectX, objectY, objectWidth // 2, objectHeight // 2)
+        self.allBlockedDirections.append(self.controls.blockDirectionX)
+        self.allBlockedDirections.append(self.controls.blockDirectionY)
+        for object in self.allBlockedDirections:
+            if object == "left" and self.stopAppendLeft == False:
+                self.totalBlocks.append("left")
+                self.stopAppendLeft = True
+            if object == "right" and self.stopAppendRight == False:
+                self.totalBlocks.append("right")
+                self.stopAppendRight = True
+            if object == "up" and self.stopAppendUp == False:
+                self.totalBlocks.append("up")
+                self.stopAppendUp = True
+            if object == "down" and self.stopAppendDown == False:
+                self.totalBlocks.append("down")
+                self.stopAppendDown = True
+        self.hitName = ""
+    def finishBarriers(self, hitName):
+        self.playerControls(self.totalBlocks, hitName)
+
+    def playerControls(self, totalBlocks, hitName):
+        self.blockDirectionUp = False
+        self.blockDirectionDown = False
+        self.blockDirectionLeft = False
+        self.blockDirectionRight = False
+        for object in totalBlocks:
+            if object == "up":
+                self.blockDirectionUp = True
+            if object == "down":
+                self.blockDirectionDown = True
+            if object == "left":
+                self.blockDirectionLeft = True
+            if object == "right":
+                self.blockDirectionRight = True
+        if hitName == "":
+            if keyboard.is_pressed("w") and not keyboard.is_pressed("s") and not self.blockDirectionUp:
+                self.moveY = "up"
+            elif keyboard.is_pressed("s") and not keyboard.is_pressed("w") and not self.blockDirectionDown:
+                self.moveY = "down"
+            if keyboard.is_pressed("a") and not keyboard.is_pressed("d") and not self.blockDirectionLeft:
+                self.moveX = "left"
+            elif keyboard.is_pressed("d") and not keyboard.is_pressed("a") and not self.blockDirectionRight:
+                self.moveX = "right"
+            self.guiOpen = ""
+        elif hitName == "bookshelf":
+            self.moveX = ""
+            self.moveY = ""
+
+            self.guiOpen = hitName
+            if keyboard.is_pressed("esc"):
+                self.guiOpen = ""
+
+    def guiHitbox(self, buttonX, buttonY, buttonWidth, buttonHeight, mouseX, mouseY, buttonFunction, pages):
+        
+        x = 0
+        for object in pages:
+            x += 1
+
+        if mouseX >= buttonX -buttonWidth // 2 and mouseX <= buttonX +buttonWidth // 2 and mouseY >= buttonY -buttonHeight // 2 and mouseY <= buttonY +buttonHeight // 2:
+            if buttonFunction == "nextPage":
+                if self.page < x -1:
+                    self.page += 1
+            if buttonFunction == "previousPage":
+                if self.page > 0:
+                    self.page -= 1
+
+class MyGame(arcade.Window):
+    def __init__(self):
+        self.time = 0
+        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, fullscreen=False)
+        self.all_sprites_list = []
+        self.controls = Controls()
+        self.bookshelfGui = Gui()
+        self.player = Player()
+        self.wall_1 = Object()
+        self.wall_2 = Object()
+        self.wall_3 = Object()
+        self.wall_4 = Object()
+        self.bookshelf = Object()
+        #build gui's
+        self.bookshelfGui.setup("bookshelf", 700, 500, "bookshelfGui.jpg")
+        self.bookshelfGui.addButton(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, 680, 430, "button", "guiAddon" , "images/paper.jpg")
+        self.bookshelfGui.addButton(SCREEN_WIDTH // 3.5 + 50, SCREEN_HEIGHT // 3 -115, 100, 55, "button", "previousPage", "images/arrow_left.jpg")
+        self.bookshelfGui.addButton(SCREEN_WIDTH // 1.5, SCREEN_HEIGHT // 3 -115, 100, 55, "button", "nextPage", "images/arrow_right.jpg")
+        #make objects ready
+        self.bookshelf.setup(80, SCREEN_HEIGHT - 100, 150, 200, "bookshelf.jpg")
+        self.all_sprites_list.append(self.bookshelf)
+        self.wall_1.setup(  SCREEN_WIDTH // 2, SCREEN_HEIGHT, 1000, 10, "box.jpg")
+        self.all_sprites_list.append(self.wall_1)
+        self.wall_2.setup(  SCREEN_WIDTH // 2, 0, 1000, 10, "box.jpg")
+        self.all_sprites_list.append(self.wall_2)
+        self.wall_3.setup(  SCREEN_WIDTH, SCREEN_HEIGHT // 2, 10, 1000, "box.jpg")
+        self.all_sprites_list.append(self.wall_3)
+        self.wall_4.setup(  0, SCREEN_HEIGHT // 2, 10, 1000, "box.jpg")
+        self.all_sprites_list.append(self.wall_4)
+        self.all_sprites_list.append(self.player)
+        self.background = arcade.load_texture("images/background.jpg")
+        self.hitbox = Hitbox()
+        self.hitbox.page = 0
+        self.hitbox.guiOpen = ""
+    def on_draw(self):
+        arcade.start_render()
+        
+        #background layer
+        arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, SCREEN_WIDTH, SCREEN_HEIGHT, self.background)
+
+        #objects layer
+        for sprite in self.all_sprites_list:
+            arcade.draw_texture_rectangle(sprite.x, sprite.y,sprite.width, sprite.height, sprite.texture)
+
+        #gui layer
+        if self.hitbox.guiOpen == "bookshelf":
+            self.bookshelfGui.drawGui(self.hitbox.page)
+    
+    def on_mouse_press(self, x, y, button, modifiers):
+
+        if self.hitbox.guiOpen == "bookshelf" and button == arcade.MOUSE_BUTTON_LEFT:
+            for object in self.bookshelfGui.buttonList:
+                self.hitbox.guiHitbox(object[0], object[1], object[2], object[3], x, y, object[5], self.bookshelfGui.pages)
+
+    def update(self, delta_time):
+        
+        #check player barriers
+        self.hitbox.setup()
+        self.hitbox.addBarrier(self.wall_1.x, self.wall_1.y, self.wall_1.width, self.wall_1.height, self.player.x, self.player.y)
+        self.hitbox.addBarrier(self.wall_2.x, self.wall_2.y, self.wall_2.width, self.wall_2.height, self.player.x, self.player.y)
+        self.hitbox.addBarrier(self.wall_3.x, self.wall_3.y, self.wall_3.width, self.wall_3.height, self.player.x, self.player.y)
+        self.hitbox.addBarrier(self.wall_4.x, self.wall_4.y, self.wall_4.width, self.wall_4.height, self.player.x, self.player.y)
+        self.hitbox.addInteractiveBarrier(self.bookshelf.x, self.bookshelf.y, self.bookshelf.width, self.bookshelf.height, self.player.x, self.player.y, "bookshelf")
+        self.hitbox.finishBarriers(self.hitbox.hitName)
+        
+        #if gui is closed move player so gui will stay closed
+        if self.hitbox.playerMoveX == "left":
+            self.player.x -= 5
+        if self.hitbox.playerMoveX == "right":
+            self.player.x += 5
+        if self.hitbox.playerMoveY == "up":
+            self.player.y= 5
+        if self.hitbox.playerMoveY == "down":
+            self.player.y += 5
+        
+        #if everything agrees to move player actually move the player
+        if self.hitbox.moveY == "up":
+            self.player.y += 5
+        if self.hitbox.moveY == "down":
+            self.player.y -= 5
+        if self.hitbox.moveX == "left":
+            self.player.x -= 5
+        if self.hitbox.moveX == "right":
+            self.player.x += 5
+    
+def main():
+    """ Main method """
+    MyGame()
+    arcade.run()
+if __name__ == "__main__":
+    main()
